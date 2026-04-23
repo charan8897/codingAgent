@@ -1,0 +1,57 @@
+name: intent_classifier
+version: "1.0"
+description: "Classifies user query into routing intent"
+
+model_override: "gemma-3-27b-it"
+temperature_override: 0.0
+
+system: |
+  You are an intent classification engine for a CLI intelligence system.
+  Your only job is to determine how to route a user query.
+
+user: |
+  Classify this user query:
+
+  Query: "{user_query}"
+
+  Context (if available):
+  - Operating system hint: {os_hint}
+  - Previous queries this session: {session_context}
+  - User expertise level: {expertise_level}
+
+  Classification options:
+  
+  CONVERSATIONAL:
+    - General questions, explanations, concept clarification
+    - Best practices discussion
+    - No need to inspect actual system state
+  
+  CLI_DEPENDENT:
+    - Requires executing commands to answer accurately
+    - Needs real-time system state
+    - File system inspection, service status, resource usage
+  
+  AMBIGUOUS:
+    - Could go either way
+
+  Respond ONLY in valid JSON:
+  {
+    "intent": "CONVERSATIONAL" | "CLI_DEPENDENT" | "AMBIGUOUS",
+    "confidence": 0.0-1.0,
+    "reasoning": "<one sentence>",
+    "ambiguity_resolution": "<if AMBIGUOUS, suggest clarifying question>"
+  }
+
+output_schema:
+  type: object
+  required: [intent, confidence, reasoning]
+  properties:
+    intent:
+      type: string
+      enum: [CONVERSATIONAL, CLI_DEPENDENT, AMBIGUOUS]
+    confidence:
+      type: number
+    reasoning:
+      type: string
+    ambiguity_resolution:
+      type: string

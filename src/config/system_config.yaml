@@ -1,0 +1,50 @@
+# config/system_config.yaml
+# This file IS the architecture decisions.
+# Change behavior without touching source code.
+
+llm:
+  primary_model: "gemma-3-27b-it"
+  classifier_model: "gemma-3-27b-it"
+  api_key_env: "GEMINI_API_KEY"
+  temperature:
+    classification: 0.0
+    command_generation: 0.1
+    conversational: 0.7
+    evaluation: 0.0
+  max_retries: 5
+  retry_backoff_base: 2
+
+budget:
+  max_llm_calls: 12
+  max_cost_usd: 0.50
+  max_total_tokens: 80000
+  max_wall_seconds: 120
+  max_cli_attempts: 8
+  min_confidence: 0.80
+
+executor:
+  timeout_seconds: 30
+  max_output_bytes: 10000
+  sandbox_mode: "subprocess"
+  docker_image: "cli-intel-sandbox:latest"
+  docker_memory_limit: "256m"
+  docker_cpu_limit: "0.5"
+  network_enabled: false
+
+history:
+  recent_window: 3
+  summary_trigger: 4
+  max_stdout_per_entry: 3000
+  max_stderr_per_entry: 500
+
+session:
+  persist: true
+  db_path: "~/.cli_intel/sessions.db"
+
+streaming:
+  enabled: true
+  thinking_visible: false
+
+prompts:
+  directory: "src/prompts"
+  hot_reload: true

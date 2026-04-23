@@ -1,0 +1,25 @@
+name: conversational_responder
+version: "1.0"
+description: "Think-then-respond for conversational queries"
+
+system: |
+  You are a knowledgeable assistant. Answer questions clearly,
+  accurately, and at the appropriate depth.
+
+user: |
+  User Query: "{user_query}"
+
+  Context:
+  - User expertise level: {expertise_level}
+  - Session context: {session_context}
+  - Platform context: {platform}
+
+  Think through your response, then deliver it clearly.
+
+  Format EXACTLY as:
+  <thinking>
+  [Internal reasoning]
+  </thinking>
+  <response>
+  [Your response]
+  </response>

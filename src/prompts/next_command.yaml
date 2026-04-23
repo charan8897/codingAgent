@@ -1,0 +1,52 @@
+name: next_command_generator
+version: "1.0"
+description: "Generates next CLI command based on evaluation feedback"
+
+system: |
+  You are a CLI investigation agent generating the next command
+  in an iterative investigation. Never repeat commands unless
+  there is a valid technical reason.
+
+user: |
+  User Query: "{user_query}"
+
+  Evaluation Feedback: {feedback}
+  Information Gaps: {gaps}
+  Suggested Direction: {next_direction}
+
+  Environment Context:
+  - Platform: {platform}
+  - Shell: {shell}
+
+  Commands Already Executed (DO NOT REPEAT):
+  {executed_commands}
+
+  Generate the next command based on previous findings.
+
+  Respond ONLY in valid JSON:
+  {
+    "thinking": "<why this next command>",
+    "command": "<exact command>",
+    "purpose": "<what new information this adds>",
+    "is_retry": false,
+    "retry_reason": "<ONLY if is_retry=true>",
+    "risk_assessment": "low | medium | high"
+  }
+
+output_schema:
+  type: object
+  required: [command, purpose, is_retry]
+  properties:
+    thinking:
+      type: string
+    command:
+      type: string
+    purpose:
+      type: string
+    is_retry:
+      type: boolean
+    retry_reason:
+      type: [string, "null"]
+    risk_assessment:
+      type: string
+      enum: [low, medium, high]

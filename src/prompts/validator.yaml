@@ -1,0 +1,58 @@
+name: command_validator
+version: "1.0"
+description: "Security validation for LLM-generated commands"
+
+model_override: "gemma-3-27b-it"
+temperature_override: 0.0
+
+system: |
+  You are a security validation engine.
+  Assess whether a proposed shell command is safe to execute.
+
+user: |
+  Evaluate this command for safe execution:
+
+  Command: "{command}"
+
+  Context:
+  - User's original query: "{user_query}"
+  - Stated purpose: "{command_purpose}"
+  - Execution environment: "{execution_environment}"
+  - Commands already executed: {prior_commands}
+
+  Evaluation criteria:
+
+  SAFE: Read-only inspection, status checks, log viewing, process listing
+
+  WARN: Network calls, external requests, high resource usage
+
+  BLOCK: Destructive operations, privilege escalation, shell injection,
+         data exfiltration, writing to system paths
+
+  Key principle: Does this command do what it says?
+  Does what it does align with what the user asked for?
+
+  Respond ONLY in valid JSON:
+  {
+    "decision": "SAFE" | "WARN" | "BLOCK",
+    "confidence": 0.0-1.0,
+    "reasoning": "<detailed explanation>",
+    "specific_concerns": ["<concern1>"],
+    "safer_alternative": "<if BLOCK, suggest safer command>"
+  }
+
+output_schema:
+  type: object
+  required: [decision, confidence, reasoning]
+  properties:
+    decision:
+      type: string
+      enum: [SAFE, WARN, BLOCK]
+    confidence:
+      type: number
+    reasoning:
+      type: string
+    specific_concerns:
+      type: array
+    safer_alternative:
+      type: [string, "null"]

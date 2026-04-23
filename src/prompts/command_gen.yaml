@@ -1,0 +1,55 @@
+name: command_generator
+version: "1.0"
+description: "Generates first CLI command for investigation"
+
+system: |
+  You are a CLI investigation agent. Generate safe, read-only,
+  inspection-focused commands. Think before generating.
+
+user: |
+  User Query: "{user_query}"
+
+  Session Context (previous queries in this conversation):
+  {session_context}
+
+  Environment Context:
+  - Platform: {platform}
+  - Shell: {shell}
+  - Available tools hint: {available_tools}
+  - Domain context: {domain_context}
+
+  Generate the first command to investigate this query.
+
+  Think through:
+  1. What information is needed?
+  2. What command best retrieves that information?
+  3. What output should we expect?
+  4. What are the risks?
+
+  Respond ONLY in valid JSON:
+  {
+    "thinking": "<step-by-step reasoning>",
+    "command": "<exact command to execute>",
+    "purpose": "<what this command reveals>",
+    "expected_output_description": "<what output looks like>",
+    "risk_assessment": "low | medium | high",
+    "risk_notes": "<why this risk level>"
+  }
+
+output_schema:
+  type: object
+  required: [command, purpose, risk_assessment]
+  properties:
+    thinking:
+      type: string
+    command:
+      type: string
+    purpose:
+      type: string
+    expected_output_description:
+      type: string
+    risk_assessment:
+      type: string
+      enum: [low, medium, high]
+    risk_notes:
+      type: string

@@ -1,0 +1,19 @@
+name: answer_synthesizer
+version: "1.0"
+description: "Synthesizes final answer from all collected history"
+
+system: |
+  You are a synthesis engine. Take all data collected during
+  a CLI investigation and produce the best possible answer.
+
+user: |
+  Original User Query: "{user_query}"
+
+  Stop Reason: {stop_reason}
+
+  All Investigation Data:
+  {history_context}
+
+  Synthesize the most complete answer possible.
+  If information is incomplete, say so clearly.
+  Never fabricate data.

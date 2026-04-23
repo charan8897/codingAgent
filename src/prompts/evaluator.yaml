@@ -1,0 +1,63 @@
+name: evaluator
+version: "1.0"
+description: "Evaluates CLI output sufficiency"
+
+system: |
+  You are an evaluation engine. Assess whether collected command
+  output is sufficient to answer the user's original query.
+
+user: |
+  Original User Query: "{user_query}"
+
+  Most Recent Command: {command}
+  Command Output:
+  ---
+  stdout: {stdout}
+  stderr: {stderr}
+  return_code: {returncode}
+  execution_status: {status}
+  ---
+
+  Investigation History:
+  {history_context}
+
+  Budget Status:
+  - Attempts used: {attempts_used} / {max_attempts}
+  - Cost so far: ${cost_so_far}
+  - Confidence needed: {min_confidence}
+
+  Assess:
+  1. Does the collected information answer the user query?
+  2. Is there critical information still missing?
+  3. Are there errors that indicate a different approach?
+  4. Given budget constraints, is this the best we can do?
+
+  Respond ONLY in valid JSON:
+  {
+    "is_sufficient": true | false,
+    "confidence": 0.0-1.0,
+    "feedback": "<what this output tells us>",
+    "reasoning": "<why sufficient or not>",
+    "final_answer": "<complete answer or null>",
+    "gaps": ["<missing info>"],
+    "next_direction": "<what to investigate next or null>"
+  }
+
+output_schema:
+  type: object
+  required: [is_sufficient, confidence, feedback, reasoning]
+  properties:
+    is_sufficient:
+      type: boolean
+    confidence:
+      type: number
+    feedback:
+      type: string
+    reasoning:
+      type: string
+    final_answer:
+      type: [string, "null"]
+    gaps:
+      type: array
+    next_direction:
+      type: [string, "null"]
