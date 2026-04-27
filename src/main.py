@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 import sys
 import os
+import readline
+import tty
+import termios
+from dotenv import load_dotenv
+load_dotenv()
+
 import yaml
 import uuid
 from pathlib import Path
@@ -185,18 +191,39 @@ class CLIIntelligence:
         
         classification = self.classifier.classify(user_query, budget, {"session_context": "none"})
         
-        print(f"[Intent Classification]")
-        print(f"  - Intent: {classification.intent}")
-        print(f"  - Confidence: {classification.confidence:.0%}")
+        # print(f"[Intent Classification]")
+        # print(f"  - Intent: {classification.intent}")
+        # print(f"  - Confidence: {classification.confidence:.0%}")
         print(f"  - Reasoning: {classification.reasoning}")
         print()
         
-        print(f"[Step-by-Step Plan]")
-        print(f"  1. Classify intent → {classification.intent}")
+        # print(f"[Step-by-Step Plan]")
+        # print(f"  1. Classify intent → {classification.intent}")
         
         if classification.intent == "CONVERSATIONAL":
-            print(f"  2. Route to conversational branch")
-            print(f"  3. Generate response (no CLI commands)")
+            # print(f"  2. Route to conversational branch")
+            # print(f"  3. Generate response (no CLI commands)")
+            
+            conv_response = self.llm.call("conversational_responder", {
+                "user_query": user_query,
+                "expertise_level": "intermediate",
+                "session_context": "none",
+                "platform": "linux"
+            })
+            conv_data = conv_response.parse_json()
+            response_text = conv_data.get("text", conv_data.get("response", ""))
+            if not response_text:
+                import re
+                match = re.search(r'<response>(.*?)</response>', conv_response.content, re.DOTALL)
+                response_text = match.group(1) if match else conv_response.content
+            
+            print()
+            print(f"{'─' * 60}")
+            print(f"RESPONSE:")
+            print(f"{'─' * 60}")
+            print(response_text)
+            print(f"{'─' * 60}")
+            # print(f"(Plan mode - conversational response only)\n")
         elif classification.intent == "CLI_DEPENDENT":
             print(f"  2. Generate first command using command_generator prompt")
             print(f"  3. Validate command using validator prompt")
@@ -207,7 +234,7 @@ class CLIIntelligence:
             print(f"  2. Ask for clarification: {classification.ambiguity_resolution}")
         
         print(f"\n{'─' * 60}")
-        print(f"PLAN MODE - No execution performed")
+        # print(f"PLAN MODE - No execution performed")
         print(f"{'─' * 60}\n")
 
     def _handle_conversational(
@@ -314,16 +341,100 @@ User Query: {query}
 Provide your plan:"""
 
 
+def interactive_mode():
+    agent = CLIIntelligence()
+    current_session = None
+    mode = "build"
+    
+    print("\n" + "="*60)
+    print("OPENCODE - CLI Intelligence")
+    print(f"  Mode: {mode.upper()} (type :mode or Tab to switch)")
+    print("  Type quit to exit")
+    print("="*60 + "\n")
+    
+    def get_input(prompt):
+        if not sys.stdin.isatty():
+            return input(prompt)
+        
+        old_settings = termios.tcgetattr(sys.stdin)
+        
+        sys.stdout.write(prompt)
+        sys.stdout.flush()
+        buf = ""
+        try:
+            tty.setcbreak(sys.stdin.fileno(), termios.TCSANOW)
+            while True:
+                ch = sys.stdin.read(1)
+                if not ch:
+                    break
+                code = ord(ch)
+                if code == 9:
+                    return None
+                elif code in (13, 10):
+                    sys.stdout.write("\n")
+                    break
+                elif code == 3:
+                    raise KeyboardInterrupt()
+                elif code == 127 or code == 8:
+                    if buf:
+                        buf = buf[:-1]
+                        sys.stdout.write("\b \b")
+                        sys.stdout.flush()
+                elif code == 27:
+                    seq = sys.stdin.read(2)
+                    continue
+                else:
+                    buf += ch
+                    sys.stdout.write(ch)
+                    sys.stdout.flush()
+        finally:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_settings)
+        return buf
+    
+    while True:
+        try:
+            prompt = f"[{mode}]> "
+            user_input = get_input(prompt)
+            
+            if user_input is None:
+                mode = "plan" if mode == "build" else "build"
+                print()
+                continue
+            
+            user_input = user_input.strip()
+            if not user_input:
+                continue
+            
+            if user_input.lower() in ["quit", "exit", "q"]:
+                print("Goodbye!")
+                break
+            
+            if user_input.startswith("/plan "):
+                q = user_input[6:]
+                agent._handle_plan_only(q)
+                continue
+            if user_input.startswith("/plan"):
+                print("Usage: /plan {query}")
+                continue
+            
+            if mode == "plan":
+                agent._handle_plan_only(user_input)
+            else:
+                agent.build(user_input, debug=False, session_id=current_session)
+                current_session = getattr(agent, '_last_session_id', current_session)
+                
+        except EOFError:
+            break
+        except KeyboardInterrupt:
+            print("\nType 'quit' to exit")
+
+
 def main():
     args = sys.argv[1:]
     
     if not args:
-        print("Usage: python3 main.py <command> [query]")
-        print("Commands:")
-        print("  /plan {query}   - Plan only (read-only)")
-        print("  /build {query}  - Build/Execute (full mode)")
-        print("  -d, --debug   Show details")
-        sys.exit(1)
+        interactive_mode()
+        return
     
     command = args[0]
     query = " ".join(args[1:])
@@ -332,7 +443,11 @@ def main():
     
     if command not in ["/plan", "/build"]:
         print(f"Unknown command: {command}")
-        print("Use /plan {query} or /build {query}")
+        print("Commands:")
+        print("  /plan {query}   - Plan only (read-only)")
+        print("  /build {query}  - Build/Execute (full mode)")
+        print("  -d, --debug   Show details")
+        print("\n  (no args)    - Interactive mode")
         sys.exit(1)
     
     if not query or query.startswith("/"):
@@ -406,48 +521,10 @@ def main():
             return
         
     elif command == "/build":
-        interactive = "-i" in args
-        for flag in ["-i", "--interactive"]:
-            if flag in args:
-                args.remove(flag)
-        
         debug = "--debug" in args or "-d" in args
-        if debug:
-            args.remove("--debug")
         
         if not query:
-            query = None
-        
-        if interactive or not query:
-            agent = CLIIntelligence()
-            current_session = None
-            print("\n" + "="*60)
-            print("BUILD MODE - Interactive")
-            print("  /plan {query}   - Switch to plan mode")
-            print("  quit          - Exit")
-            print("="*60 + "\n")
-            while True:
-                try:
-                    user_input = input("> ").strip()
-                    if not user_input:
-                        continue
-                    if user_input.lower() in ["quit", "exit", "q"]:
-                        print("Goodbye!")
-                        break
-                    if user_input.startswith("/plan "):
-                        q = user_input[6:]
-                        agent._handle_plan_only(q)
-                        continue
-                    if user_input.startswith("/plan"):
-                        print("Usage: /plan {query}")
-                        continue
-                    agent.build(user_input, debug=debug, session_id=current_session)
-                    current_session = getattr(agent, '_last_session_id', current_session)
-                except EOFError:
-                    break
-                except KeyboardInterrupt:
-                    print("\nUse 'quit' to exit")
-                    break
+            interactive_mode()
             return
         
         agent = CLIIntelligence()
